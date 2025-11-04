@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Po</string>
+    <string name="cancelar">Cancelar</string>
+    
+    <string-array name="opciones_recordatorio">
+        <item>Seleccionar recordatorio</item>
+        <item>El mismo día del evento</item>
+        <item>1 día antes</item>
+        <item>3 días antes</item>
+        <item>1 semana antes</item>
+        <item>2 semanas antes</item>
+    </string-array>
+</resources>
