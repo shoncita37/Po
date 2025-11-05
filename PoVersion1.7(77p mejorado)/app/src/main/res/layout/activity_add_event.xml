@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<androidx.core.widget.NestedScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
+    android:fillViewport="true"
     android:background="#FFFFFF"
     tools:context=".AddEventActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
 
     <TextView
         android:id="@+id/textViewTitle"
@@ -135,32 +140,29 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"/>
-        
-    <View
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
 
-    <Button
-        android:id="@+id/btnGuardarEvento"
-        style="@style/Widget.MaterialComponents.Button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Guardar Evento"
-        android:layout_gravity="bottom"
-        android:paddingVertical="12dp"
-        android:backgroundTint="#FF5722"
-        app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Button.Rounded"/>
+        <Button
+            android:id="@+id/btnGuardarEvento"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Guardar Evento"
+            android:layout_gravity="bottom"
+            android:paddingVertical="12dp"
+            android:backgroundTint="#FF5722"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Button.Rounded"/>
 
-    <Button
-        android:id="@+id/btnCancelarEvento"
-        style="@style/Widget.MaterialComponents.Button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:backgroundTint="#7A22FF"
-        android:paddingVertical="12dp"
-        android:text="@string/cancelar"
-        app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Button.Rounded" />
+        <Button
+            android:id="@+id/btnCancelarEvento"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:backgroundTint="#7A22FF"
+            android:paddingVertical="12dp"
+            android:text="@string/cancelar"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Button.Rounded" />
 
-</LinearLayout>
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>
