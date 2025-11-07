@@ -3,6 +3,7 @@ package com.example.po;
 import static android.content.ContentValues.TAG;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -26,6 +27,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Logger;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
@@ -48,10 +50,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
-        // Check if user is signed in (non-null) and update UI accordingly.
+        FirebaseDatabase.getInstance().setLogLevel(Logger.Level.DEBUG);
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if(currentUser != null){
             currentUser.reload();
+            // Solo verificar que el usuario existe, pero no redirigir automáticamente
+            // El usuario debe hacer clic en "Iniciar Sesión" para continuar
         }
     }
 
@@ -117,7 +121,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     void checkSingIn(String email, String password){
-
+        // Siempre intentar autenticar con las credenciales proporcionadas
         mAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
                     @Override
@@ -130,15 +134,11 @@ public class MainActivity extends AppCompatActivity {
                             String idUser = user.getUid();
                             cargarEventos(idUser);
 
-
-
-
                         } else {
                             // If sign in fails, display a message to the user.
                             Log.w(TAG, "signInWithEmail:failure", task.getException());
                             Toast.makeText(MainActivity.this, "Authentication failed.",
                                     Toast.LENGTH_SHORT).show();
-
                         }
                     }
                 });

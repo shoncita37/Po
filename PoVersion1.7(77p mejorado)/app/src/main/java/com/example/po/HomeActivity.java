@@ -1,10 +1,13 @@
 package com.example.po;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import androidx.appcompat.app.AlertDialog;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -21,6 +24,8 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,12 +37,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class HomeActivity extends AppCompatActivity implements EventoAdapter.OnItemClickListener  {
+ public class HomeActivity extends AppCompatActivity implements EventoAdapter.OnItemClickListener  {
 
     private RecyclerView recyclerViewEventos;
     private EventoAdapter eventoAdapter;
     private Button buttonManageTags;
     private Button buttonFilters;
+    private Button buttonManageEmpresa;
 
     //
     private List<Evento> listaDeEventos;
@@ -52,6 +58,8 @@ public class HomeActivity extends AppCompatActivity implements EventoAdapter.OnI
     private List<String> availableTags = new ArrayList<>();
     private List<String> selectedFilterTags = new ArrayList<>();
     private List<Evento> listaFiltrada = new ArrayList<>();
+    private Boolean isBusiness = null;
+    private ActivityResultLauncher<String> pickCsvLauncher;
 
 
     private final ActivityResultLauncher<Intent> addEventLauncher = registerForActivityResult(
@@ -199,12 +207,81 @@ public class HomeActivity extends AppCompatActivity implements EventoAdapter.OnI
         fabAgregarEvento = findViewById(R.id.fabAgregarEvento);
         buttonManageTags = findViewById(R.id.buttonManageTags);
         buttonFilters = findViewById(R.id.buttonFilters);
+        buttonManageEmpresa = findViewById(R.id.buttonManageEmpresa);
         
         // Inicializar TagManager y configuración de filtros
         idUser = getIntent().getStringExtra("idUser");
+        if (idUser == null || idUser.isEmpty()) {
+            // Fallback: recuperar el usuario autenticado actual
+            FirebaseUser current = FirebaseAuth.getInstance().getCurrentUser();
+            if (current != null) {
+                idUser = current.getUid();
+            }
+        }
         tagManager = new TagManager(this, idUser);
         selectedFilterTags.clear();
         selectedFilterTags.add("todos");
+
+        // Cargar datos del usuario (business y name) para mostrar gestión de empresa si aplica
+        DatabaseReference userRef = FirebaseDatabase.getInstance()
+                .getReference("Users")
+                .child(idUser)
+                .child("user");
+
+        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Boolean business = snapshot.child("business").getValue(Boolean.class);
+                String userName = snapshot.child("name").getValue(String.class);
+                isBusiness = business;
+                invalidateOptionsMenu();
+
+                if (Boolean.TRUE.equals(business)) {
+                    buttonManageEmpresa.setVisibility(View.VISIBLE);
+                    buttonManageEmpresa.setOnClickListener(v -> {
+                        Intent intent = new Intent(HomeActivity.this, EmpresaActivity.class);
+                        intent.putExtra("idUser", idUser);
+                        intent.putExtra("userName", userName);
+                        startActivity(intent);
+                    });
+                } else {
+                    buttonManageEmpresa.setVisibility(View.GONE);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                // En caso de error, mantener oculto el botón
+                buttonManageEmpresa.setVisibility(View.GONE);
+            }
+        });
+
+        // Registrador para seleccionar un archivo CSV y ejecutar importación
+        pickCsvLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+            if (uri != null) {
+                if (idUser == null || idUser.isEmpty()) {
+                    Toast.makeText(this, "Id de usuario inválido", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                CsvExporter.importFromCsv(this, idUser, uri, new CsvExporter.ImportCallback() {
+                    @Override
+                    public void onSuccess(int entidadesCount, int eventosCount, int productosCount) {
+                        Toast.makeText(HomeActivity.this,
+                                "Importado: " + entidadesCount + " entidades, " + eventosCount + " eventos, " + productosCount + " productos",
+                                Toast.LENGTH_LONG).show();
+                        // Tras importar, recargar los eventos desde Firebase para mostrarlos
+                        reloadEventosFromFirebase();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        Toast.makeText(HomeActivity.this, "Error importando: " + message, Toast.LENGTH_LONG).show();
+                    }
+                });
+            } else {
+                Toast.makeText(this, "Archivo no seleccionado", Toast.LENGTH_SHORT).show();
+            }
+        });
         
         buttonManageTags.setOnClickListener(view -> {
             Intent intent = new Intent(HomeActivity.this, TagsActivity.class);
@@ -225,7 +302,14 @@ public class HomeActivity extends AppCompatActivity implements EventoAdapter.OnI
 
         ArrayList<Evento> listaEventos = getIntent().getParcelableArrayListExtra("listaEventos");
 
-        cargarDatos(listaEventos);
+        if (listaEventos != null) {
+            cargarDatos(listaEventos);
+        } else {
+            // Si no hay datos en el Intent (por re-creación), cargar desde Firebase
+            if (idUser != null && !idUser.isEmpty()) {
+                reloadEventosFromFirebase();
+            }
+        }
 
 
         if(listaDeEventos != null){
@@ -248,6 +332,86 @@ public class HomeActivity extends AppCompatActivity implements EventoAdapter.OnI
             addEventLauncher.launch(intent);
         });
 
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Guardar la última pantalla para restaurar si el usuario vuelve sin cerrar la app
+        SharedPreferences sp = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        sp.edit()
+                .putString("last_screen", "home")
+                .putString("last_user_id", idUser != null ? idUser : "")
+                .apply();
+    }
+
+    @Override
+    public void onBackPressed() {
+        // Limpiar estado y salir completamente
+        SharedPreferences prefs = getSharedPreferences("app_state", MODE_PRIVATE);
+        prefs.edit()
+            .remove("last_screen")
+            .remove("last_user_id")
+            .apply();
+        
+        // Forzar cierre de la aplicación
+        finishAffinity();
+        System.exit(0);
+    }
+
+    private void reloadEventosFromFirebase() {
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("Users")
+                .child(idUser)
+                .child("ListEvents");
+
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                List<Evento> nuevosEventos = new ArrayList<>();
+
+                for (DataSnapshot eventSnap : snapshot.getChildren()) {
+                    String fecha = eventSnap.child("fecha").getValue(String.class);
+                    String nombre = eventSnap.child("nombre").getValue(String.class);
+                    String notas = eventSnap.child("notas").getValue(String.class);
+                    String id = eventSnap.child("id").getValue(String.class);
+                    Integer tipoRecordatorio = eventSnap.child("tipoRecordatorio").getValue(Integer.class);
+
+                    // Recuperar listaDeseo completa (incluyendo tags de productos)
+                    List<Producto> productos = new ArrayList<>();
+                    for (DataSnapshot productoSnap : eventSnap.child("listaDeseo").getChildren()) {
+                        Producto producto = productoSnap.getValue(Producto.class);
+                        if (producto != null) {
+                            productos.add(producto);
+                        }
+                    }
+
+                    // Recuperar tags del evento
+                    List<String> tags = new ArrayList<>();
+                    for (DataSnapshot tagSnap : eventSnap.child("tags").getChildren()) {
+                        String tag = tagSnap.getValue(String.class);
+                        if (tag != null) {
+                            tags.add(tag);
+                        }
+                    }
+
+                    Evento evento = new Evento(fecha, nombre, notas, productos, id);
+                    if (tipoRecordatorio != null) {
+                        evento.setTipoRecordatorio(tipoRecordatorio);
+                    }
+                    evento.setTags(tags);
+                    nuevosEventos.add(evento);
+                }
+
+                listaDeEventos = nuevosEventos;
+                applyFiltersAndRefresh();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(HomeActivity.this, "Error recargando eventos: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void showFilterDialog() {
@@ -346,6 +510,59 @@ public class HomeActivity extends AppCompatActivity implements EventoAdapter.OnI
         eventoAdapter.setOnItemClickListener(this);
         recyclerViewEventos.setAdapter(eventoAdapter);
         eventoAdapter.notifyDataSetChanged();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_home, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem exportItem = menu.findItem(R.id.action_export_csv);
+        if (exportItem != null) {
+            exportItem.setVisible(Boolean.TRUE.equals(isBusiness));
+        }
+        MenuItem importItem = menu.findItem(R.id.action_import_csv);
+        if (importItem != null) {
+            importItem.setVisible(Boolean.TRUE.equals(isBusiness));
+        }
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.action_export_csv) {
+            if (idUser == null || idUser.isEmpty()) {
+                Toast.makeText(this, "Id de usuario inválido", Toast.LENGTH_LONG).show();
+            } else {
+                CsvExporter.exportEmpresaToCsv(this, idUser, new CsvExporter.ExportCallback() {
+                    @Override
+                    public void onSuccess(String filePath, android.net.Uri fileUri) {
+                        Toast.makeText(HomeActivity.this,
+                                "CSV guardado en: " + filePath,
+                                Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        Toast.makeText(HomeActivity.this,
+                                "Error exportando CSV: " + message,
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+            return true;
+        } else if (item.getItemId() == R.id.action_import_csv) {
+            if (!Boolean.TRUE.equals(isBusiness)) {
+                Toast.makeText(this, "Solo disponible para empresas", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            pickCsvLauncher.launch("text/*");
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override

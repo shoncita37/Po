@@ -135,6 +135,10 @@ public class RegisterActivity extends AppCompatActivity {
 
                             myRef.child(idUser).setValue(dataMap);
 
+                            // Navegar de vuelta a MainActivity para continuar el flujo sin cerrar la app
+                            Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
+                            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
                             finish();
 
 

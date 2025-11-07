@@ -47,6 +47,9 @@
         <activity
             android:name=".TagsActivity"
             android:exported="false" />
+        <activity
+            android:name=".EmpresaActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

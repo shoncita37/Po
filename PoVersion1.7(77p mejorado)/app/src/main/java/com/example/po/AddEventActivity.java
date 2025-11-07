@@ -31,6 +31,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Logger;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
@@ -302,7 +303,6 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
                     .addOnSuccessListener(aVoid -> {
                         Toast.makeText(this, "Evento agregado correctamente", Toast.LENGTH_SHORT).show();
 
-                        // También enviamos el resultado a HomeActivity como antes
             Intent resultIntent = new Intent();
             // Asegurarse de que los tags no sean nulos antes de devolver el evento
             if (eventoResultado.getTags() == null) {
