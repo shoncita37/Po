@@ -25,40 +25,21 @@
                 android:background="#FF5722"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/buttonFilters" />
+                app:layout_constraintEnd_toStartOf="@+id/buttonOverflowMenu" />
 
-            <Button
-                android:id="@+id/buttonFilters"
-                android:layout_width="wrap_content"
+            <ImageButton
+                android:id="@+id/buttonOverflowMenu"
+                android:layout_width="56dp"
                 android:layout_height="0dp"
-                android:background="#7A93D8"
-                android:text="Filtros"
-                android:textColor="@android:color/white"
-                app:layout_constraintBottom_toBottomOf="@+id/toolbar"
-                app:layout_constraintEnd_toStartOf="@+id/buttonManageTags"
-                app:layout_constraintTop_toTopOf="@+id/toolbar" />
-
-            <Button
-                android:id="@+id/buttonManageTags"
-                android:layout_width="wrap_content"
-                android:layout_height="0dp"
-                android:background="#DB7878"
-                android:text="Gestionar Tags"
-                android:textColor="@android:color/white"
-                app:layout_constraintBottom_toBottomOf="@+id/toolbar"
-                app:layout_constraintEnd_toStartOf="@+id/buttonManageEmpresa"
-                app:layout_constraintTop_toTopOf="@+id/toolbar" />
-
-            <Button
-                android:id="@+id/buttonManageEmpresa"
-                android:layout_width="wrap_content"
-                android:layout_height="0dp"
-                android:background="#4CAF50"
-                android:text="Gestionar Empresa"
-                android:textColor="@android:color/white"
-                android:visibility="gone"
+                android:background="#9C27B0"
+                android:backgroundTint="#9C27B0"
+                android:contentDescription="Abrir menú"
+                android:src="@android:drawable/ic_menu_more"
+                android:padding="12dp"
+                android:scaleType="center"
                 app:layout_constraintBottom_toBottomOf="@+id/toolbar"
                 app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/toolbar"
                 app:layout_constraintTop_toTopOf="@+id/toolbar" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
@@ -100,9 +81,9 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
-        app:srcCompat="@drawable/ic_add_small"
-
         android:backgroundTint="#FF5722"
-        android:contentDescription="Agregar nuevo evento" />
+
+        android:contentDescription="Agregar nuevo evento"
+        app:srcCompat="@android:drawable/ic_input_add" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

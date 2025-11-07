@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -16,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -41,9 +43,7 @@ import java.util.Map;
 
     private RecyclerView recyclerViewEventos;
     private EventoAdapter eventoAdapter;
-    private Button buttonManageTags;
-    private Button buttonFilters;
-    private Button buttonManageEmpresa;
+    private ImageButton buttonOverflowMenu;
 
     //
     private List<Evento> listaDeEventos;
@@ -59,6 +59,12 @@ import java.util.Map;
     private List<String> selectedFilterTags = new ArrayList<>();
     private List<Evento> listaFiltrada = new ArrayList<>();
     private Boolean isBusiness = null;
+    private String cachedUserName = null;
+    private static final int MENU_FILTERS = 1;
+    private static final int MENU_MANAGE_TAGS = 2;
+    private static final int MENU_MANAGE_EMPRESA = 3;
+    private static final int MENU_EXPORT_CSV = 4;
+    private static final int MENU_IMPORT_CSV = 5;
     private ActivityResultLauncher<String> pickCsvLauncher;
 
 
@@ -205,9 +211,7 @@ import java.util.Map;
 
         recyclerViewEventos = findViewById(R.id.recyclerViewEventos);
         fabAgregarEvento = findViewById(R.id.fabAgregarEvento);
-        buttonManageTags = findViewById(R.id.buttonManageTags);
-        buttonFilters = findViewById(R.id.buttonFilters);
-        buttonManageEmpresa = findViewById(R.id.buttonManageEmpresa);
+        buttonOverflowMenu = findViewById(R.id.buttonOverflowMenu);
         
         // Inicializar TagManager y configuración de filtros
         idUser = getIntent().getStringExtra("idUser");
@@ -234,25 +238,14 @@ import java.util.Map;
                 Boolean business = snapshot.child("business").getValue(Boolean.class);
                 String userName = snapshot.child("name").getValue(String.class);
                 isBusiness = business;
+                cachedUserName = userName;
                 invalidateOptionsMenu();
-
-                if (Boolean.TRUE.equals(business)) {
-                    buttonManageEmpresa.setVisibility(View.VISIBLE);
-                    buttonManageEmpresa.setOnClickListener(v -> {
-                        Intent intent = new Intent(HomeActivity.this, EmpresaActivity.class);
-                        intent.putExtra("idUser", idUser);
-                        intent.putExtra("userName", userName);
-                        startActivity(intent);
-                    });
-                } else {
-                    buttonManageEmpresa.setVisibility(View.GONE);
-                }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                // En caso de error, mantener oculto el botón
-                buttonManageEmpresa.setVisibility(View.GONE);
+                // En caso de error, mantener oculto cualquier referencia de empresa
+                isBusiness = false;
             }
         });
 
@@ -283,18 +276,82 @@ import java.util.Map;
             }
         });
         
-        buttonManageTags.setOnClickListener(view -> {
-            Intent intent = new Intent(HomeActivity.this, TagsActivity.class);
-            intent.putExtra("userId", idUser);
-            startActivity(intent);
-        });
-        
-        buttonFilters.setOnClickListener(v -> {
-            // Cargar tags y mostrar el diálogo de filtros
-            tagManager.loadTags(tags -> {
-                availableTags = new ArrayList<>(tags);
-                showFilterDialog();
+        // Configurar menú desplegable
+        buttonOverflowMenu.setOnClickListener(v -> {
+            PopupMenu popup = new PopupMenu(HomeActivity.this, buttonOverflowMenu);
+            Menu menu = popup.getMenu();
+            menu.add(Menu.NONE, MENU_FILTERS, Menu.NONE, "Filtros");
+            menu.add(Menu.NONE, MENU_MANAGE_TAGS, Menu.NONE, "Gestionar Tags");
+            if (Boolean.TRUE.equals(isBusiness)) {
+                menu.add(Menu.NONE, MENU_MANAGE_EMPRESA, Menu.NONE, "Gestionar Empresa");
+                menu.add(Menu.NONE, MENU_EXPORT_CSV, Menu.NONE, "Exportar CSV");
+                menu.add(Menu.NONE, MENU_IMPORT_CSV, Menu.NONE, "Importar CSV");
+            }
+
+            popup.setOnMenuItemClickListener(item -> {
+                switch (item.getItemId()) {
+                    case MENU_FILTERS:
+                        tagManager.loadTags(tags -> {
+                            availableTags = new ArrayList<>(tags);
+                            showFilterDialog();
+                        });
+                        return true;
+                    case MENU_MANAGE_TAGS: {
+                        Intent intent = new Intent(HomeActivity.this, TagsActivity.class);
+                        intent.putExtra("userId", idUser);
+                        startActivity(intent);
+                        return true;
+                    }
+                    case MENU_MANAGE_EMPRESA: {
+                        if (!Boolean.TRUE.equals(isBusiness)) {
+                            Toast.makeText(HomeActivity.this, "Solo disponible para empresas", Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+                        Intent intent = new Intent(HomeActivity.this, EmpresaActivity.class);
+                        intent.putExtra("idUser", idUser);
+                        intent.putExtra("userName", cachedUserName);
+                        startActivity(intent);
+                        return true;
+                    }
+                    case MENU_EXPORT_CSV: {
+                        if (!Boolean.TRUE.equals(isBusiness)) {
+                            Toast.makeText(HomeActivity.this, "Solo disponible para empresas", Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+                        if (idUser == null || idUser.isEmpty()) {
+                            Toast.makeText(HomeActivity.this, "Id de usuario inválido", Toast.LENGTH_LONG).show();
+                        } else {
+                            CsvExporter.exportEmpresaToCsv(HomeActivity.this, idUser, new CsvExporter.ExportCallback() {
+                                @Override
+                                public void onSuccess(String filePath, android.net.Uri fileUri) {
+                                    Toast.makeText(HomeActivity.this,
+                                            "CSV guardado en: " + filePath,
+                                            Toast.LENGTH_LONG).show();
+                                }
+
+                                @Override
+                                public void onError(String message) {
+                                    Toast.makeText(HomeActivity.this,
+                                            "Error exportando CSV: " + message,
+                                            Toast.LENGTH_LONG).show();
+                                }
+                            });
+                        }
+                        return true;
+                    }
+                    case MENU_IMPORT_CSV: {
+                        if (!Boolean.TRUE.equals(isBusiness)) {
+                            Toast.makeText(HomeActivity.this, "Solo disponible para empresas", Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+                        pickCsvLauncher.launch("text/*");
+                        return true;
+                    }
+                }
+                return false;
             });
+
+            popup.show();
         });
 
         recyclerViewEventos.setLayoutManager(new LinearLayoutManager(this));
@@ -345,19 +402,6 @@ import java.util.Map;
                 .apply();
     }
 
-    @Override
-    public void onBackPressed() {
-        // Limpiar estado y salir completamente
-        SharedPreferences prefs = getSharedPreferences("app_state", MODE_PRIVATE);
-        prefs.edit()
-            .remove("last_screen")
-            .remove("last_user_id")
-            .apply();
-        
-        // Forzar cierre de la aplicación
-        finishAffinity();
-        System.exit(0);
-    }
 
     private void reloadEventosFromFirebase() {
         DatabaseReference ref = FirebaseDatabase.getInstance()
@@ -512,58 +556,7 @@ import java.util.Map;
         eventoAdapter.notifyDataSetChanged();
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_home, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onPrepareOptionsMenu(Menu menu) {
-        MenuItem exportItem = menu.findItem(R.id.action_export_csv);
-        if (exportItem != null) {
-            exportItem.setVisible(Boolean.TRUE.equals(isBusiness));
-        }
-        MenuItem importItem = menu.findItem(R.id.action_import_csv);
-        if (importItem != null) {
-            importItem.setVisible(Boolean.TRUE.equals(isBusiness));
-        }
-        return super.onPrepareOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.action_export_csv) {
-            if (idUser == null || idUser.isEmpty()) {
-                Toast.makeText(this, "Id de usuario inválido", Toast.LENGTH_LONG).show();
-            } else {
-                CsvExporter.exportEmpresaToCsv(this, idUser, new CsvExporter.ExportCallback() {
-                    @Override
-                    public void onSuccess(String filePath, android.net.Uri fileUri) {
-                        Toast.makeText(HomeActivity.this,
-                                "CSV guardado en: " + filePath,
-                                Toast.LENGTH_LONG).show();
-                    }
-
-                    @Override
-                    public void onError(String message) {
-                        Toast.makeText(HomeActivity.this,
-                                "Error exportando CSV: " + message,
-                                Toast.LENGTH_LONG).show();
-                    }
-                });
-            }
-            return true;
-        } else if (item.getItemId() == R.id.action_import_csv) {
-            if (!Boolean.TRUE.equals(isBusiness)) {
-                Toast.makeText(this, "Solo disponible para empresas", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-            pickCsvLauncher.launch("text/*");
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
+    // Se eliminan las opciones del Toolbar; las acciones están en el PopupMenu
 
     @Override
     public void onItemClick(Evento evento) {
