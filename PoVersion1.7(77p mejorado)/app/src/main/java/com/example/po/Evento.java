@@ -16,11 +16,15 @@ public class Evento implements Parcelable {
     private List<Producto> listaDeseo;  // lista de productos
     private int tipoRecordatorio; // 0: mismo día, 1: 1 día antes, 2: 3 días antes, 3: 1 semana antes, 4: 2 semanas antes
     private List<String> tags; // Lista de tags para el evento
+    private List<String> encargados; // Encargados asignados al evento (nombres)
+    private List<String> clientes;   // Clientes asociados al evento (nombres)
 
     public Evento() {
         this.listaDeseo = new ArrayList<>(); // evita null
         this.tipoRecordatorio = 0; // Por defecto, el mismo día
         this.tags = new ArrayList<>(Arrays.asList("todos")); // Por defecto, se agrega el tag "todos"
+        this.encargados = new ArrayList<>();
+        this.clientes = new ArrayList<>();
     }
 
     public Evento(String fecha, String nombre, String notas, List<Producto> listaDeseo) {
@@ -31,6 +35,8 @@ public class Evento implements Parcelable {
         this.id = "NN";
         this.tipoRecordatorio = 0; // Por defecto, el mismo día
         this.tags = new ArrayList<>(Arrays.asList("todos")); // Por defecto, se agrega el tag "todos"
+        this.encargados = new ArrayList<>();
+        this.clientes = new ArrayList<>();
     }
     
     public Evento(String fecha, String nombre, String notas, List<Producto> listaDeseo, String id) {
@@ -41,6 +47,8 @@ public class Evento implements Parcelable {
         this.id = id;
         this.tipoRecordatorio = 0; // Por defecto, el mismo día
         this.tags = new ArrayList<>(Arrays.asList("todos")); // Por defecto, se agrega el tag "todos"
+        this.encargados = new ArrayList<>();
+        this.clientes = new ArrayList<>();
     }
     
     public Evento(String fecha, String nombre, String notas) {
@@ -51,6 +59,8 @@ public class Evento implements Parcelable {
         this.id = "NN";
         this.tipoRecordatorio = 0; // Por defecto, el mismo día
         this.tags = new ArrayList<>(Arrays.asList("todos")); // Por defecto, se agrega el tag "todos"
+        this.encargados = new ArrayList<>();
+        this.clientes = new ArrayList<>();
     }
     
     public Evento(String fecha, String nombre, String notas, int tipoRecordatorio) {
@@ -61,6 +71,8 @@ public class Evento implements Parcelable {
         this.id = "NN";
         this.tipoRecordatorio = tipoRecordatorio;
         this.tags = new ArrayList<>(Arrays.asList("todos")); // Por defecto, se agrega el tag "todos"
+        this.encargados = new ArrayList<>();
+        this.clientes = new ArrayList<>();
     }
     
     public Evento(String fecha, String nombre, String notas, List<Producto> listaDeseo, int tipoRecordatorio) {
@@ -71,6 +83,8 @@ public class Evento implements Parcelable {
         this.id = "NN";
         this.tipoRecordatorio = tipoRecordatorio;
         this.tags = new ArrayList<>(Arrays.asList("todos")); // Por defecto, se agrega el tag "todos"
+        this.encargados = new ArrayList<>();
+        this.clientes = new ArrayList<>();
     }
     
     public Evento(String fecha, String nombre, String notas, List<Producto> listaDeseo, int tipoRecordatorio, List<String> tags) {
@@ -84,6 +98,8 @@ public class Evento implements Parcelable {
         if (!this.tags.contains("todos")) {
             this.tags.add("todos");
         }
+        this.encargados = new ArrayList<>();
+        this.clientes = new ArrayList<>();
     }
 
     public String getFecha() {
@@ -159,6 +175,22 @@ public class Evento implements Parcelable {
         }
     }
 
+    public List<String> getEncargados() {
+        return encargados;
+    }
+
+    public void setEncargados(List<String> encargados) {
+        this.encargados = (encargados != null) ? encargados : new ArrayList<>();
+    }
+
+    public List<String> getClientes() {
+        return clientes;
+    }
+
+    public void setClientes(List<String> clientes) {
+        this.clientes = (clientes != null) ? clientes : new ArrayList<>();
+    }
+
     protected Evento(Parcel in) {
         fecha = in.readString();
         nombre = in.readString();
@@ -175,6 +207,14 @@ public class Evento implements Parcelable {
         } else if (tags.isEmpty()) {
             tags.add("todos");
         }
+        encargados = in.createStringArrayList();
+        if (encargados == null) {
+            encargados = new ArrayList<>();
+        }
+        clientes = in.createStringArrayList();
+        if (clientes == null) {
+            clientes = new ArrayList<>();
+        }
     }
 
     @Override
@@ -186,6 +226,8 @@ public class Evento implements Parcelable {
         dest.writeString(id);
         dest.writeInt(tipoRecordatorio);
         dest.writeStringList(tags); // escribe lista de tags
+        dest.writeStringList(encargados);
+        dest.writeStringList(clientes);
     }
 
     @Override

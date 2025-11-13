@@ -55,6 +55,12 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
     private SelectedTagAdapter selectedTagAdapter;
     private TagManager tagManager;
     private List<String> availableTags;
+    // Empresa: selección de encargados y clientes
+    private List<String> availableEncargados = new ArrayList<>();
+    private List<String> availableClientes = new ArrayList<>();
+    private List<String> selectedEncargados = new ArrayList<>();
+    private List<String> selectedClientes = new ArrayList<>();
+    private String userId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,7 +69,7 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
 
         // Obtener el ID del usuario actual del Intent
         // Intentar obtener userId de diferentes formas para asegurar compatibilidad
-        String userId = getIntent().getStringExtra("userId");
+        userId = getIntent().getStringExtra("userId");
         if (userId == null) {
             userId = getIntent().getStringExtra("idUser");
         }
@@ -79,6 +85,9 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
             setupTagsSpinner();
         });
 
+        // Cargar listas de empresa para selección
+        loadEmpresaLists();
+
         editTextEventName = findViewById(R.id.editTextEventName);
         editTextEventDate = findViewById(R.id.editTextEventDate);
         editTextEventNotes = findViewById(R.id.editTextEventNotes);
@@ -88,6 +97,8 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
 
         btnGuardarEvento = findViewById(R.id.btnGuardarEvento);
         btnCancelarEvento = findViewById(R.id.btnCancelarEvento);
+        Button btnSeleccionarEncargados = findViewById(R.id.btnSeleccionarEncargados);
+        Button btnSeleccionarClientes = findViewById(R.id.btnSeleccionarClientes);
 
         textViewTitle = findViewById(R.id.textViewTitle);
         
@@ -127,6 +138,8 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
         editTextEventDate.setOnClickListener(v -> mostrarDialogoDeFecha());
         btnGuardarEvento.setOnClickListener(v -> guardarCambios());
         btnCancelarEvento.setOnClickListener(v -> cancelarCambios());
+        btnSeleccionarEncargados.setOnClickListener(v -> showEncargadosDialog());
+        btnSeleccionarClientes.setOnClickListener(v -> showClientesDialog());
     }
 
     private void modoEdicion() {
@@ -159,6 +172,13 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
         // Actualizar el adaptador después de cargar los tags
         if (selectedTagAdapter != null) {
             selectedTagAdapter.updateTags(selectedTags);
+        }
+        // Cargar encargados/clientes si existen en el evento
+        if (eventoEditable.getEncargados() != null) {
+            selectedEncargados = new ArrayList<>(eventoEditable.getEncargados());
+        }
+        if (eventoEditable.getClientes() != null) {
+            selectedClientes = new ArrayList<>(eventoEditable.getClientes());
         }
     }
     
@@ -208,6 +228,81 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
         Intent intent = new Intent(this, TagsActivity.class);
         intent.putExtra("idUser", getIntent().getStringExtra("idUser"));
         startActivity(intent);
+    }
+
+    private void loadEmpresaLists() {
+        if (userId == null || userId.isEmpty()) return;
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("Users")
+                .child(userId)
+                .child("Empresa");
+
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                availableEncargados.clear();
+                availableClientes.clear();
+                for (DataSnapshot eSnap : snapshot.child("encargados").getChildren()) {
+                    Entidad e = eSnap.getValue(Entidad.class);
+                    if (e != null && e.getNombre() != null) {
+                        availableEncargados.add(e.getNombre());
+                    }
+                }
+                for (DataSnapshot cSnap : snapshot.child("clientes").getChildren()) {
+                    Entidad c = cSnap.getValue(Entidad.class);
+                    if (c != null && c.getNombre() != null) {
+                        availableClientes.add(c.getNombre());
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                // Ignorar errores
+            }
+        });
+    }
+
+    private void showEncargadosDialog() {
+        String[] items = availableEncargados.toArray(new String[0]);
+        boolean[] checked = new boolean[items.length];
+        for (int i = 0; i < items.length; i++) {
+            checked[i] = selectedEncargados.contains(items[i]);
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Seleccionar Encargados")
+                .setMultiChoiceItems(items, checked, (dialog, which, isChecked) -> {
+                    String name = items[which];
+                    if (isChecked) {
+                        if (!selectedEncargados.contains(name)) selectedEncargados.add(name);
+                    } else {
+                        selectedEncargados.remove(name);
+                    }
+                })
+                .setPositiveButton("OK", (d, w) -> d.dismiss())
+                .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                .show();
+    }
+
+    private void showClientesDialog() {
+        String[] items = availableClientes.toArray(new String[0]);
+        boolean[] checked = new boolean[items.length];
+        for (int i = 0; i < items.length; i++) {
+            checked[i] = selectedClientes.contains(items[i]);
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Seleccionar Clientes")
+                .setMultiChoiceItems(items, checked, (dialog, which, isChecked) -> {
+                    String name = items[which];
+                    if (isChecked) {
+                        if (!selectedClientes.contains(name)) selectedClientes.add(name);
+                    } else {
+                        selectedClientes.remove(name);
+                    }
+                })
+                .setPositiveButton("OK", (d, w) -> d.dismiss())
+                .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                .show();
     }
 
     
@@ -265,6 +360,8 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
             }
             eventoResultado.setId(eventoEditable.getId());
             eventoResultado.setTags(selectedTags); // Establecer los tags seleccionados
+            eventoResultado.setEncargados(selectedEncargados);
+            eventoResultado.setClientes(selectedClientes);
         } else {
             // Nuevo evento
             if(listaDeseocheck == null) {
@@ -273,6 +370,8 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
                 eventoResultado = new Evento(eventDate, eventName, eventNotes, listaDeseocheck, tipoRecordatorio);
             }
             eventoResultado.setTags(selectedTags); // Establecer los tags seleccionados
+            eventoResultado.setEncargados(selectedEncargados);
+            eventoResultado.setClientes(selectedClientes);
         }
 
         // Obtener el ID del usuario actual del Intent
@@ -308,6 +407,12 @@ public class AddEventActivity extends AppCompatActivity implements SelectedTagAd
             if (eventoResultado.getTags() == null) {
                 eventoResultado.setTags(new ArrayList<>());
                 eventoResultado.addTag("todos");
+            }
+            if (eventoResultado.getEncargados() == null) {
+                eventoResultado.setEncargados(new ArrayList<>());
+            }
+            if (eventoResultado.getClientes() == null) {
+                eventoResultado.setClientes(new ArrayList<>());
             }
             resultIntent.putExtra("evento_resultado", eventoResultado);
                         setResult(RESULT_OK, resultIntent);

@@ -5,6 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:fillViewport="true"
     android:background="#FFFFFF"
     tools:context=".AddEventActivity">
@@ -140,6 +141,33 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"/>
+
+        <!-- Controles para seleccionar Encargados y Clientes -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <Button
+                android:id="@+id/btnSeleccionarEncargados"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Seleccionar Encargados"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Button.Rounded"/>
+
+            <Button
+                android:id="@+id/btnSeleccionarClientes"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Seleccionar Clientes"
+                android:layout_marginStart="8dp"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Button.Rounded"/>
+        </LinearLayout>
 
         <Button
             android:id="@+id/btnGuardarEvento"

@@ -58,6 +58,9 @@ import java.util.Map;
     private List<String> availableTags = new ArrayList<>();
     private List<String> selectedFilterTags = new ArrayList<>();
     private List<Evento> listaFiltrada = new ArrayList<>();
+    // Filtros adicionales (empresa)
+    private List<String> selectedFilterEncargados = new ArrayList<>();
+    private List<String> selectedFilterClientes = new ArrayList<>();
     private Boolean isBusiness = null;
     private String cachedUserName = null;
     private static final int MENU_FILTERS = 1;
@@ -65,6 +68,8 @@ import java.util.Map;
     private static final int MENU_MANAGE_EMPRESA = 3;
     private static final int MENU_EXPORT_CSV = 4;
     private static final int MENU_IMPORT_CSV = 5;
+    private static final int MENU_FILTER_ENCARGADOS = 6;
+    private static final int MENU_FILTER_CLIENTES = 7;
     private ActivityResultLauncher<String> pickCsvLauncher;
 
 
@@ -113,6 +118,7 @@ import java.util.Map;
                                 .getReference("Users")
                                 .child(idUser)
                                 .child("ListEvents");
+
 
                         ref.addListenerForSingleValueEvent(new ValueEventListener() {
                             @Override
@@ -284,6 +290,8 @@ import java.util.Map;
             menu.add(Menu.NONE, MENU_MANAGE_TAGS, Menu.NONE, "Gestionar Tags");
             if (Boolean.TRUE.equals(isBusiness)) {
                 menu.add(Menu.NONE, MENU_MANAGE_EMPRESA, Menu.NONE, "Gestionar Empresa");
+                menu.add(Menu.NONE, MENU_FILTER_ENCARGADOS, Menu.NONE, "Filtrar Encargados");
+                menu.add(Menu.NONE, MENU_FILTER_CLIENTES, Menu.NONE, "Filtrar Clientes");
                 menu.add(Menu.NONE, MENU_EXPORT_CSV, Menu.NONE, "Exportar CSV");
                 menu.add(Menu.NONE, MENU_IMPORT_CSV, Menu.NONE, "Importar CSV");
             }
@@ -311,6 +319,22 @@ import java.util.Map;
                         intent.putExtra("idUser", idUser);
                         intent.putExtra("userName", cachedUserName);
                         startActivity(intent);
+                        return true;
+                    }
+                    case MENU_FILTER_ENCARGADOS: {
+                        if (!Boolean.TRUE.equals(isBusiness)) {
+                            Toast.makeText(HomeActivity.this, "Solo disponible para empresas", Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+                        loadAndShowEncargadosFilterDialog();
+                        return true;
+                    }
+                    case MENU_FILTER_CLIENTES: {
+                        if (!Boolean.TRUE.equals(isBusiness)) {
+                            Toast.makeText(HomeActivity.this, "Solo disponible para empresas", Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+                        loadAndShowClientesFilterDialog();
                         return true;
                     }
                     case MENU_EXPORT_CSV: {
@@ -439,11 +463,31 @@ import java.util.Map;
                         }
                     }
 
+                    // Recuperar encargados del evento
+                    List<String> encargados = new ArrayList<>();
+                    for (DataSnapshot enSnap : eventSnap.child("encargados").getChildren()) {
+                        String nombreEn = enSnap.getValue(String.class);
+                        if (nombreEn != null) {
+                            encargados.add(nombreEn);
+                        }
+                    }
+
+                    // Recuperar clientes del evento
+                    List<String> clientes = new ArrayList<>();
+                    for (DataSnapshot clSnap : eventSnap.child("clientes").getChildren()) {
+                        String nombreCli = clSnap.getValue(String.class);
+                        if (nombreCli != null) {
+                            clientes.add(nombreCli);
+                        }
+                    }
+
                     Evento evento = new Evento(fecha, nombre, notas, productos, id);
                     if (tipoRecordatorio != null) {
                         evento.setTipoRecordatorio(tipoRecordatorio);
                     }
                     evento.setTags(tags);
+                    evento.setEncargados(encargados);
+                    evento.setClientes(clientes);
                     nuevosEventos.add(evento);
                 }
 
@@ -520,7 +564,11 @@ import java.util.Map;
     }
 
     private void applyFiltersAndRefresh() {
-        if (selectedFilterTags == null || selectedFilterTags.isEmpty() || selectedFilterTags.contains("todos")) {
+        boolean tagsShowAll = (selectedFilterTags == null || selectedFilterTags.isEmpty() || selectedFilterTags.contains("todos"));
+        boolean encargadosShowAll = (selectedFilterEncargados == null || selectedFilterEncargados.isEmpty());
+        boolean clientesShowAll = (selectedFilterClientes == null || selectedFilterClientes.isEmpty());
+
+        if (tagsShowAll && encargadosShowAll && clientesShowAll) {
             // Mostrar todos
             eventoAdapter = new EventoAdapter(listaDeEventos);
             eventoAdapter.setOnItemClickListener(this);
@@ -529,7 +577,7 @@ import java.util.Map;
             return;
         }
 
-        // Filtrar por intersección: el evento debe contener TODOS los tags seleccionados
+        // Filtrar por intersección: el evento debe contener TODOS los seleccionados
         listaFiltrada.clear();
         for (Evento e : listaDeEventos) {
             List<String> tags = e.getTags();
@@ -538,14 +586,40 @@ import java.util.Map;
                 tags.add("todos");
                 e.setTags(tags);
             }
-            boolean contieneTodos = true;
-            for (String t : selectedFilterTags) {
-                if (!tags.contains(t)) {
-                    contieneTodos = false;
-                    break;
+            boolean pasa = true;
+            // Tags
+            if (!tagsShowAll) {
+                for (String t : selectedFilterTags) {
+                    if (!tags.contains(t)) {
+                        pasa = false;
+                        break;
+                    }
                 }
             }
-            if (contieneTodos) {
+            // Encargados
+            if (pasa && !encargadosShowAll) {
+                List<String> enc = e.getEncargados();
+                if (enc == null) enc = new ArrayList<>();
+                for (String s : selectedFilterEncargados) {
+                    if (!enc.contains(s)) {
+                        pasa = false;
+                        break;
+                    }
+                }
+            }
+            // Clientes
+            if (pasa && !clientesShowAll) {
+                List<String> cl = e.getClientes();
+                if (cl == null) cl = new ArrayList<>();
+                for (String s : selectedFilterClientes) {
+                    if (!cl.contains(s)) {
+                        pasa = false;
+                        break;
+                    }
+                }
+            }
+
+            if (pasa) {
                 listaFiltrada.add(e);
             }
         }
@@ -554,6 +628,88 @@ import java.util.Map;
         eventoAdapter.setOnItemClickListener(this);
         recyclerViewEventos.setAdapter(eventoAdapter);
         eventoAdapter.notifyDataSetChanged();
+    }
+
+    private void loadAndShowEncargadosFilterDialog() {
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("Users")
+                .child(idUser)
+                .child("Empresa")
+                .child("encargados");
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                List<String> disponibles = new ArrayList<>();
+                for (DataSnapshot s : snapshot.getChildren()) {
+                    Entidad e = s.getValue(Entidad.class);
+                    if (e != null && e.getNombre() != null) disponibles.add(e.getNombre());
+                }
+                String[] items = disponibles.toArray(new String[0]);
+                boolean[] checked = new boolean[items.length];
+                for (int i = 0; i < items.length; i++) {
+                    checked[i] = selectedFilterEncargados.contains(items[i]);
+                }
+                new AlertDialog.Builder(HomeActivity.this)
+                        .setTitle("Filtrar por Encargados")
+                        .setMultiChoiceItems(items, checked, (dialog, which, isChecked) -> {
+                            String name = items[which];
+                            if (isChecked) {
+                                if (!selectedFilterEncargados.contains(name)) selectedFilterEncargados.add(name);
+                            } else {
+                                selectedFilterEncargados.remove(name);
+                            }
+                        })
+                        .setPositiveButton("Aplicar", (d, w) -> applyFiltersAndRefresh())
+                        .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                        .show();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(HomeActivity.this, "Error cargando encargados", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void loadAndShowClientesFilterDialog() {
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("Users")
+                .child(idUser)
+                .child("Empresa")
+                .child("clientes");
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                List<String> disponibles = new ArrayList<>();
+                for (DataSnapshot s : snapshot.getChildren()) {
+                    Entidad e = s.getValue(Entidad.class);
+                    if (e != null && e.getNombre() != null) disponibles.add(e.getNombre());
+                }
+                String[] items = disponibles.toArray(new String[0]);
+                boolean[] checked = new boolean[items.length];
+                for (int i = 0; i < items.length; i++) {
+                    checked[i] = selectedFilterClientes.contains(items[i]);
+                }
+                new AlertDialog.Builder(HomeActivity.this)
+                        .setTitle("Filtrar por Clientes")
+                        .setMultiChoiceItems(items, checked, (dialog, which, isChecked) -> {
+                            String name = items[which];
+                            if (isChecked) {
+                                if (!selectedFilterClientes.contains(name)) selectedFilterClientes.add(name);
+                            } else {
+                                selectedFilterClientes.remove(name);
+                            }
+                        })
+                        .setPositiveButton("Aplicar", (d, w) -> applyFiltersAndRefresh())
+                        .setNegativeButton("Cancelar", (d, w) -> d.dismiss())
+                        .show();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(HomeActivity.this, "Error cargando clientes", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     // Se eliminan las opciones del Toolbar; las acciones están en el PopupMenu
